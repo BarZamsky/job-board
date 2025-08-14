@@ -1,0 +1,24 @@
+{
+    "semi": false,
+    "singleQuote": true,
+    "printWidth": 120,
+    "tabWidth": 4,
+    "useTabs": false,
+    "endOfLine": "lf",
+    "trailingComma": "es5",
+    "overrides": [
+        {
+            "files": "*.md",
+            "options": {
+                "tabWidth": 2,
+                "printWidth": 0
+            }
+        },
+        {
+            "files": ["*.yml", "*.yaml"],
+            "options": {
+                "tabWidth": 2
+            }
+        }
+    ]
+}
