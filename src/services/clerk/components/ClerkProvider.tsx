@@ -2,14 +2,9 @@
 
 import { ClerkProvider as ClerkProviderBase } from '@clerk/nextjs'
 import { dark } from '@clerk/themes'
-import { useIsDarkMode } from './useIdDarkMode'
-import { Suspense } from 'react'
+import { useIsDarkMode } from '@/hooks/useIdDarkMode'
 
 export default function ClerkProvider({ children }: { children: React.ReactNode }) {
     const isDarkMode = useIsDarkMode()
-    return (
-        <Suspense>
-            <ClerkProviderBase appearance={isDarkMode ? { baseTheme: [dark] } : {}}>{children}</ClerkProviderBase>
-        </Suspense>
-    )
+    return <ClerkProviderBase appearance={isDarkMode ? { baseTheme: [dark] } : undefined}>{children}</ClerkProviderBase>
 }
