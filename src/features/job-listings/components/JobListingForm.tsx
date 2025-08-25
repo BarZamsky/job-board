@@ -11,7 +11,13 @@ import { FormLabel } from '@/components/ui/form'
 import { FormField } from '@/components/ui/form'
 import { Form } from '@/components/ui/form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { experienceLevels, jobListingTypes, locationRequirements, wageIntervals } from '@/drizzle/schema'
+import {
+    experienceLevels,
+    JobListingTable,
+    jobListingTypes,
+    locationRequirements,
+    wageIntervals,
+} from '@/drizzle/schema'
 import {
     formatExperienceLevel,
     formatJobListingType,
@@ -22,14 +28,30 @@ import { states } from '@/data/states'
 import { MarkdownEditor } from '@/components/markdown/MarkdownEditer'
 import { Button } from '@/components/ui/button'
 import { LoadingSwap } from '@/components/LoadingSwap'
-import { createJobListing } from '../actions/actions'
+import { createJobListing, updateJobListing } from '../actions/actions'
 import { toast } from 'sonner'
 
 const NONE_SELECT_VALUE = 'none'
-export function JobListingForm() {
+export function JobListingForm({
+    jobListing,
+}: {
+    jobListing: Pick<
+        typeof JobListingTable.$inferSelect,
+        | 'id'
+        | 'title'
+        | 'description'
+        | 'experienceLevel'
+        | 'locationRequirment'
+        | 'type'
+        | 'wage'
+        | 'wageInterval'
+        | 'stateAbbreviation'
+        | 'city'
+    >
+}) {
     const form = useForm<JobListingFormValues>({
         resolver: zodResolver(jobListingSchema),
-        defaultValues: {
+        defaultValues: jobListing ?? {
             title: '',
             description: '',
             experienceLevel: 'junior',
@@ -43,7 +65,8 @@ export function JobListingForm() {
     })
 
     const onSubmit = async (data: JobListingFormValues) => {
-        const result = await createJobListing(data)
+        const action = jobListing ? updateJobListing.bind(null, jobListing.id) : createJobListing
+        const result = await action(data)
         if (result.error) {
             toast.error(result.message)
         }
