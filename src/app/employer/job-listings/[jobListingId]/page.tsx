@@ -6,15 +6,20 @@ import { and } from 'drizzle-orm'
 import { cacheTag } from 'next/dist/server/use-cache/cache-tag'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
-import { JobListingTable } from '@/drizzle/schema'
+import { JobListingStatus, JobListingTable } from '@/drizzle/schema'
 import { Badge } from '@/components/ui/badge'
 import { formatJobListingStatus } from '@/features/job-listings/lib/formatters'
 import { JobListingBadges } from '@/features/job-listings/components/JobListingBadges'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { EditIcon } from 'lucide-react'
+import { EditIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer'
 import { MarkdownPartial } from '@/components/markdown/MarkdownPartial'
+import { AsyncIf } from '@/components/AsyncIf'
+import { hasOrgUserPermission } from '@/services/clerk/lib/org-user-permissions'
+import { getNextJobListingStatus } from '@/features/job-listings/lib/utils'
+import { hasReachedMaxFeaturedJobListings } from '@/features/job-listings/lib/plan-feature-helpers'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 
 type Props = {
     params: Promise<{ jobListingId: string }>
@@ -49,12 +54,15 @@ async function SuspendedPage({ params }: Props) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2 empty:-mt-4">
-                    <Button asChild variant="outline">
-                        <Link href={`/employer/job-listings/${jobListing.id}/edit`}>
-                            <EditIcon className="size-4" />
-                            Edit
-                        </Link>
-                    </Button>
+                    <AsyncIf condition={() => hasOrgUserPermission('job_listings:job_listings_update')}>
+                        <Button asChild variant="outline">
+                            <Link href={`/employer/job-listings/${jobListing.id}/edit`}>
+                                <EditIcon className="size-4" />
+                                Edit
+                            </Link>
+                        </Button>
+                    </AsyncIf>
+                    <StatusUpdateButton status={jobListing.status} />
                 </div>
             </div>
 
@@ -67,6 +75,48 @@ async function SuspendedPage({ params }: Props) {
     )
 }
 
+function StatusUpdateButton({ status }: { status: JobListingStatus }) {
+    const ButtonComponent = <Button variant="outline">Toggle</Button>
+
+    return (
+        <AsyncIf condition={() => hasOrgUserPermission('job_listings:job_listings_change_status')}>
+            {getNextJobListingStatus(status) === 'published' ? (
+                <AsyncIf
+                    condition={async () => {
+                        const isMaxed = await hasReachedMaxFeaturedJobListings()
+                        return !isMaxed
+                    }}
+                    otherwise={
+                        <UpgradePopover
+                            buttonText={statusToggleButtonText(status)}
+                            popoverText="You must upgrade your plan to post more job listings."
+                        />
+                    }
+                >
+                    {ButtonComponent}
+                </AsyncIf>
+            ) : (
+                ButtonComponent
+            )}
+        </AsyncIf>
+    )
+}
+
+function UpgradePopover({ buttonText, popoverText }: { buttonText: React.ReactNode; popoverText: React.ReactNode }) {
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline">{buttonText}</Button>
+            </PopoverTrigger>
+            <PopoverContent className="flex flex-col gap-2">
+                {popoverText}
+                <Button asChild>
+                    <Link href="/employer/pricing">Upgrade Plan</Link>
+                </Button>
+            </PopoverContent>
+        </Popover>
+    )
+}
 async function getJobListing(orgId: string, jobListingId: string) {
     'use cache'
     cacheTag(getJobListingTag(jobListingId))
@@ -74,4 +124,22 @@ async function getJobListing(orgId: string, jobListingId: string) {
     return db.query.JobListingTable.findFirst({
         where: and(eq(JobListingTable.id, jobListingId), eq(JobListingTable.organizationId, orgId)),
     })
+}
+
+function statusToggleButtonText(status: JobListingStatus) {
+    switch (status) {
+        case 'draft':
+        case 'delisted':
+            return (
+                <>
+                    <EyeIcon className="size-4" /> Publish
+                </>
+            )
+        case 'published':
+            return (
+                <>
+                    <EyeOffIcon className="size-4" /> Delist
+                </>
+            )
+    }
 }

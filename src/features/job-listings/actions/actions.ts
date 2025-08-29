@@ -10,10 +10,11 @@ import { db } from '@/drizzle/db'
 import { JobListingTable } from '@/drizzle/schema'
 import { and } from 'drizzle-orm'
 import { eq } from 'drizzle-orm'
+import { hasOrgUserPermission } from '@/services/clerk/lib/org-user-permissions'
 
 export const createJobListing = async (formData: JobListingFormValues) => {
     const { orgId } = await getCurrentOrganization()
-    if (!orgId) {
+    if (!orgId || !(await hasOrgUserPermission('job_listings:job_listings_create'))) {
         return {
             error: true,
             message: 'You dont have permission to create a job listing',
@@ -38,10 +39,10 @@ export const createJobListing = async (formData: JobListingFormValues) => {
 
 export const updateJobListing = async (id: string, formData: JobListingFormValues) => {
     const { orgId } = await getCurrentOrganization()
-    if (!orgId) {
+    if (!orgId || !(await hasOrgUserPermission('job_listings:job_listings_update'))) {
         return {
             error: true,
-            message: 'You dont have permission to update a job listing',
+            message: 'You dont have permission to update this job listing',
         }
     }
 
@@ -54,6 +55,13 @@ export const updateJobListing = async (id: string, formData: JobListingFormValue
     }
 
     const existingJobListing = await getJobListing(id, orgId)
+    if (!existingJobListing) {
+        return {
+            error: true,
+            message: 'There was an error updating the job listing',
+        }
+    }
+
     const updatedJobListing = await updateJobListingDb(id, {
         ...existingJobListing,
         ...data,
