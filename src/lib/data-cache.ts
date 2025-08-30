@@ -18,3 +18,7 @@ export const getIdTag = (tag: CacheTag, id: string) => {
 export const getOrganizationTag = (tag: CacheTag, orgId: string) => {
     return `org:${orgId}-${tag}` as const
 }
+
+export const getJobListingTag = (tag: CacheTag, jobListingId: string) => {
+    return `jobListing:${jobListingId}-${tag}` as const
+}

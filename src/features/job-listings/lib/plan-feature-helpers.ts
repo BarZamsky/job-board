@@ -6,7 +6,7 @@ import { cacheTag } from 'next/dist/server/use-cache/cache-tag'
 import { getJobListingOrganizationTag } from '../db/cache/job-listings'
 import { getPlanFeatures } from '@/services/clerk/lib/plan-features'
 
-export const hasReachedMaxFeaturedJobListings = async () => {
+export const hasReachedMaxPublishedJobListings = async () => {
     const { orgId } = await getCurrentOrganization()
     if (!orgId) return true
 
@@ -20,6 +20,19 @@ export const hasReachedMaxFeaturedJobListings = async () => {
     return !canPost.some(Boolean)
 }
 
+export const hasReachedMaxFeaturedJobListings = async () => {
+    const { orgId } = await getCurrentOrganization()
+    if (!orgId) return true
+
+    const count = await getFeaturedJobListingsCount(orgId)
+    const canPost = await Promise.all([
+        getPlanFeatures('1_featured_job_listing').then((has) => has && count < 1),
+        getPlanFeatures('unlimited_featured_jobs'),
+    ])
+
+    return !canPost.some(Boolean)
+}
+
 const getPublishedJobListingsCount = async (orgId: string) => {
     'use cache'
     cacheTag(getJobListingOrganizationTag(orgId))
@@ -28,6 +41,18 @@ const getPublishedJobListingsCount = async (orgId: string) => {
         .select({ count: count() })
         .from(JobListingTable)
         .where(and(eq(JobListingTable.organizationId, orgId), eq(JobListingTable.status, 'published')))
+
+    return res?.count ?? 0
+}
+
+const getFeaturedJobListingsCount = async (orgId: string) => {
+    'use cache'
+    cacheTag(getJobListingOrganizationTag(orgId))
+
+    const [res] = await db
+        .select({ count: count() })
+        .from(JobListingTable)
+        .where(and(eq(JobListingTable.organizationId, orgId), eq(JobListingTable.isFeatured, true)))
 
     return res?.count ?? 0
 }

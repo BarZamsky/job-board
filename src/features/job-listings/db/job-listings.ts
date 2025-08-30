@@ -24,3 +24,12 @@ export const updateJobListing = async (id: string, jobListing: Partial<typeof Jo
     revalidateJobListingCache(updatedJobListing)
     return updatedJobListing
 }
+
+export const deleteJobListing = async (id: string) => {
+    const [deletedJobListing] = await db.delete(JobListingTable).where(eq(JobListingTable.id, id)).returning({
+        id: JobListingTable.id,
+        orgId: JobListingTable.organizationId,
+    })
+    revalidateJobListingCache(deletedJobListing)
+    return deletedJobListing
+}
